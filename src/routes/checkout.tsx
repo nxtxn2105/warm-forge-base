@@ -152,7 +152,7 @@ function CheckoutPage() {
     setIntentError(null);
     try {
       if (paymentMethod === "card") {
-        const billing = await createBilling({
+        const session = await createCardCheckout({
           data: {
             quantity,
             customer: parsed,
@@ -160,8 +160,8 @@ function CheckoutPage() {
             completionUrl: `${window.location.origin}/pagamento-sucesso`,
           },
         });
-        if (!billing.url) throw new Error("URL de checkout indisponível");
-        window.location.href = billing.url;
+        if (!session.url) throw new Error("URL de checkout indisponível");
+        window.location.href = session.url;
         return;
       }
       const charge = await createCharge({
