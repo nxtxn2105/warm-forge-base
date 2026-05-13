@@ -151,6 +151,19 @@ function CheckoutPage() {
     setLoadingIntent(true);
     setIntentError(null);
     try {
+      if (paymentMethod === "card") {
+        const billing = await createBilling({
+          data: {
+            quantity,
+            customer: parsed,
+            returnUrl: `${window.location.origin}/checkout`,
+            completionUrl: `${window.location.origin}/pagamento-sucesso`,
+          },
+        });
+        if (!billing.url) throw new Error("URL de checkout indisponível");
+        window.location.href = billing.url;
+        return;
+      }
       const charge = await createCharge({
         data: { quantity, customer: parsed },
       });
