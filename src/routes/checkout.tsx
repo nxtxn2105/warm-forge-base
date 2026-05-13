@@ -63,6 +63,7 @@ type PixCharge = {
 
 function CheckoutPage() {
   const [quantity, setQuantity] = useState(1);
+  const [paymentMethod, setPaymentMethod] = useState<"pix" | "card">("pix");
   const [customer, setCustomer] = useState<CustomerData>({
     name: "",
     email: "",
