@@ -22,6 +22,13 @@ const inputSchema = z.object({
   customer: customerSchema,
 });
 
+const billingInputSchema = z.object({
+  quantity: z.number().int().min(1).max(10),
+  customer: customerSchema,
+  returnUrl: z.string().url().max(500),
+  completionUrl: z.string().url().max(500),
+});
+
 const UNIT_AMOUNT = 8700; // R$ 87,00 em centavos
 const onlyDigits = (s: string) => s.replace(/\D/g, "");
 
