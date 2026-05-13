@@ -5,7 +5,7 @@ import { z } from "zod";
 import {
   createAbacatePixCharge,
   checkAbacatePixStatus,
-  createAbacateBilling,
+  createStripeCardCheckout,
 } from "@/lib/payment.functions";
 import reviewSandra from "@/assets/review-sandra.jpg";
 import reviewHelena from "@/assets/review-helena.jpg";
