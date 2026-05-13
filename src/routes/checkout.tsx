@@ -286,7 +286,7 @@ function CheckoutPage() {
 
               {paymentMethod === "card" && (
                 <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-800">
-                  💳 Você será redirecionado para a página segura da AbacatePay para inserir os dados do cartão. Após o pagamento, você volta automaticamente para nosso site.
+                  💳 Você será redirecionado para a página segura da Stripe para inserir os dados do cartão. Após o pagamento, você volta automaticamente para nosso site.
                 </div>
               )}
 
