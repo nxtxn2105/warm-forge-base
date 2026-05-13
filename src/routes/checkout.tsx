@@ -5,7 +5,7 @@ import { z } from "zod";
 import {
   createAbacatePixCharge,
   checkAbacatePixStatus,
-  createAbacateBilling,
+  createStripeCardCheckout,
 } from "@/lib/payment.functions";
 import reviewSandra from "@/assets/review-sandra.jpg";
 import reviewHelena from "@/assets/review-helena.jpg";
@@ -88,7 +88,7 @@ function CheckoutPage() {
   const navigate = useNavigate();
   const createCharge = useServerFn(createAbacatePixCharge);
   const checkStatus = useServerFn(checkAbacatePixStatus);
-  const createBilling = useServerFn(createAbacateBilling);
+  const createCardCheckout = useServerFn(createStripeCardCheckout);
   const total = PRODUCT_PRICE * quantity;
 
   const updateCustomer = (key: keyof CustomerData, value: string) => {
@@ -152,7 +152,7 @@ function CheckoutPage() {
     setIntentError(null);
     try {
       if (paymentMethod === "card") {
-        const billing = await createBilling({
+        const session = await createCardCheckout({
           data: {
             quantity,
             customer: parsed,
@@ -160,8 +160,8 @@ function CheckoutPage() {
             completionUrl: `${window.location.origin}/pagamento-sucesso`,
           },
         });
-        if (!billing.url) throw new Error("URL de checkout indisponível");
-        window.location.href = billing.url;
+        if (!session.url) throw new Error("URL de checkout indisponível");
+        window.location.href = session.url;
         return;
       }
       const charge = await createCharge({
@@ -286,7 +286,7 @@ function CheckoutPage() {
 
               {paymentMethod === "card" && (
                 <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-800">
-                  💳 Você será redirecionado para a página segura da AbacatePay para inserir os dados do cartão. Após o pagamento, você volta automaticamente para nosso site.
+                  💳 Você será redirecionado para a página segura da Stripe para inserir os dados do cartão. Após o pagamento, você volta automaticamente para nosso site.
                 </div>
               )}
 

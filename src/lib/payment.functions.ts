@@ -103,6 +103,53 @@ export const checkAbacatePixStatus = createServerFn({ method: "POST" })
     return { status: (d.status as string) ?? "PENDING" };
   });
 
+export const createStripeCardCheckout = createServerFn({ method: "POST" })
+  .inputValidator((data) => billingInputSchema.parse(data))
+  .handler(async ({ data }) => {
+    const apiKey = process.env.STRIPE_SECRET_KEY;
+    if (!apiKey) throw new Error("STRIPE_SECRET_KEY não configurada");
+
+    const params = new URLSearchParams();
+    params.append("mode", "payment");
+    params.append("payment_method_types[]", "card");
+    params.append("success_url", data.completionUrl);
+    params.append("cancel_url", data.returnUrl);
+    params.append("customer_email", data.customer.email);
+    params.append("line_items[0][quantity]", String(data.quantity));
+    params.append("line_items[0][price_data][currency]", "brl");
+    params.append("line_items[0][price_data][unit_amount]", String(UNIT_AMOUNT));
+    params.append("line_items[0][price_data][product_data][name]", "Happy 3 Em 1");
+    params.append(
+      "line_items[0][price_data][product_data][description]",
+      "Happy 3 Em 1 — produto físico",
+    );
+    params.append("metadata[customer_name]", data.customer.name);
+    params.append("metadata[customer_cpf]", onlyDigits(data.customer.cpf));
+    params.append("metadata[customer_phone]", data.customer.phone);
+    params.append("metadata[shipping_cep]", onlyDigits(data.customer.cep));
+    params.append(
+      "metadata[shipping_address]",
+      `${data.customer.rua}, ${data.customer.numero}${data.customer.complemento ? " - " + data.customer.complemento : ""} - ${data.customer.bairro}, ${data.customer.cidade}/${data.customer.uf}`,
+    );
+
+    const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    });
+
+    const json = (await res.json()) as any;
+    if (!res.ok) {
+      console.error("Stripe checkout error:", json);
+      throw new Error(json?.error?.message || "Falha ao criar checkout Stripe");
+    }
+
+    return { id: json.id as string, url: json.url as string };
+  });
+
 export const createAbacateBilling = createServerFn({ method: "POST" })
   .inputValidator((data) => billingInputSchema.parse(data))
   .handler(async ({ data }) => {
