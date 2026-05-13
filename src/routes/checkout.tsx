@@ -88,6 +88,7 @@ function CheckoutPage() {
   const navigate = useNavigate();
   const createCharge = useServerFn(createAbacatePixCharge);
   const checkStatus = useServerFn(checkAbacatePixStatus);
+  const createBilling = useServerFn(createAbacateBilling);
   const total = PRODUCT_PRICE * quantity;
 
   const updateCustomer = (key: keyof CustomerData, value: string) => {
