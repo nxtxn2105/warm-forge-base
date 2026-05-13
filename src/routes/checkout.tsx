@@ -251,20 +251,44 @@ function CheckoutPage() {
           </div>
         </SectionCard>
 
-        <SectionCard step={3} title="PAGAMENTO VIA PIX">
+        <SectionCard step={3} title="DADOS DE PAGAMENTO">
           {pix ? (
             <PixInstructions pix={pix} status={pixStatus} onReset={handleReset} />
           ) : (
             <div className="space-y-4">
-              <div className="rounded-lg border-2 border-[#16a34a] bg-[#e8f5ee] p-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">📱</span>
-                  <span className="font-bold text-gray-800">PIX</span>
-                </div>
-                <p className="mt-1 text-xs text-gray-600">
-                  Aprovação imediata via QR Code
-                </p>
+              <p className="text-sm font-bold text-gray-800">Escolha a forma de pagamento</p>
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  { id: "pix" as const, icon: "📱", title: "PIX", desc: "Aprovação imediata" },
+                  { id: "card" as const, icon: "💳", title: "Cartão de Crédito", desc: "Pagamento seguro" },
+                ]).map((o) => {
+                  const active = paymentMethod === o.id;
+                  return (
+                    <button
+                      key={o.id}
+                      type="button"
+                      onClick={() => setPaymentMethod(o.id)}
+                      className={`rounded-lg border-2 p-3 text-left transition ${
+                        active
+                          ? "border-[#16a34a] bg-[#e8f5ee]"
+                          : "border-gray-200 bg-white hover:border-gray-300"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">{o.icon}</span>
+                        <span className="font-bold text-gray-800">{o.title}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-600">{o.desc}</p>
+                    </button>
+                  );
+                })}
               </div>
+
+              {paymentMethod === "card" && (
+                <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-800">
+                  💳 Você será redirecionado para a página segura da AbacatePay para inserir os dados do cartão. Após o pagamento, você volta automaticamente para nosso site.
+                </div>
+              )}
 
               <div className="border-t pt-4">
                 <p className="mb-3 text-base font-bold text-[#0d8a5f]">
@@ -277,7 +301,13 @@ function CheckoutPage() {
                   disabled={loadingIntent}
                   className="w-full rounded-lg bg-[#16a34a] py-4 text-lg font-extrabold uppercase tracking-wide text-white shadow-md transition hover:bg-[#138a3f] disabled:opacity-60"
                 >
-                  {loadingIntent ? "Gerando QR Code..." : "Gerar QR Code PIX"}
+                  {loadingIntent
+                    ? paymentMethod === "card"
+                      ? "Redirecionando..."
+                      : "Gerando QR Code..."
+                    : paymentMethod === "card"
+                      ? "Pagar com cartão"
+                      : "Gerar QR Code PIX"}
                 </button>
                 <p className="mt-3 text-center text-xs text-gray-500">
                   🔒 Ambiente criptografado e 100% seguro.
@@ -286,6 +316,7 @@ function CheckoutPage() {
             </div>
           )}
         </SectionCard>
+
 
         <Testimonials />
         <Footer />
