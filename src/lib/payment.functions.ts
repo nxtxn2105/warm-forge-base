@@ -102,3 +102,55 @@ export const checkAbacatePixStatus = createServerFn({ method: "POST" })
     const d = json.data ?? json;
     return { status: (d.status as string) ?? "PENDING" };
   });
+
+export const createAbacateBilling = createServerFn({ method: "POST" })
+  .inputValidator((data) => billingInputSchema.parse(data))
+  .handler(async ({ data }) => {
+    const apiKey = process.env.ABACATEPAY_API_KEY;
+    if (!apiKey) throw new Error("ABACATEPAY_API_KEY não configurada");
+
+    const body = {
+      frequency: "ONE_TIME",
+      methods: ["PIX", "CREDIT_CARD"],
+      products: [
+        {
+          externalId: "happy-3em1",
+          name: "Happy 3 Em 1",
+          description: "Happy 3 Em 1 — produto físico",
+          quantity: data.quantity,
+          price: UNIT_AMOUNT,
+        },
+      ],
+      returnUrl: data.returnUrl,
+      completionUrl: data.completionUrl,
+      customer: {
+        name: data.customer.name,
+        cellphone: data.customer.phone,
+        email: data.customer.email,
+        taxId: onlyDigits(data.customer.cpf),
+      },
+    };
+
+    const res = await fetch(`${ABACATE_API}/billing/create`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const json = (await res.json()) as any;
+    if (!res.ok || json?.error) {
+      console.error("AbacatePay billing error:", json);
+      throw new Error(
+        json?.error?.message || json?.message || "Falha ao criar checkout",
+      );
+    }
+
+    const d = json.data ?? json;
+    return {
+      id: d.id as string,
+      url: d.url as string,
+    };
+  });
