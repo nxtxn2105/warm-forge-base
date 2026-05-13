@@ -2,6 +2,8 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+// @ts-ignore - raw HTML import
+import staticIndexHtml from "../public/site.html?raw";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -22,6 +24,22 @@ function brandedErrorResponse(): Response {
   return new Response(renderErrorPage(), {
     status: 500,
     headers: { "content-type": "text/html; charset=utf-8" },
+  });
+}
+
+const LONG_CACHE_PATH = /\.(?:avif|webp|png|jpe?g|gif|svg|ico|woff2?|css|js|mjs)$/i;
+
+function withCacheHeaders(request: Request, response: Response): Response {
+  if (request.method !== "GET") return response;
+  const url = new URL(request.url);
+  if (!LONG_CACHE_PATH.test(url.pathname)) return response;
+
+  const headers = new Headers(response.headers);
+  headers.set("cache-control", "public, max-age=31536000, immutable");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
   });
 }
 
@@ -69,9 +87,18 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const url = new URL(request.url);
+      if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
+        return new Response(staticIndexHtml as unknown as string, {
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-cache",
+          },
+        });
+      }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return withCacheHeaders(request, await normalizeCatastrophicSsrResponse(response));
     } catch (error) {
       console.error(error);
       return brandedErrorResponse();

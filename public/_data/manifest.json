@@ -1,0 +1,6 @@
+{
+  "GET https://api.ipify.org/?format=json": "/_data/ee9e5cf4f5816ab9.json",
+  "GET https://api6.ipify.org/?format=json": "/_data/8a34aef4dee66278.json",
+  "POST https://tracking.utmify.com.br/tracking/v1/events": "/_data/d20257743b59fc77.json",
+  "PUT https://tracking.utmify.com.br/tracking/v1/lead": "/_data/8d84ead942b69936.json"
+}
