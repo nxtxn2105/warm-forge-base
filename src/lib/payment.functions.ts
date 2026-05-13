@@ -1,78 +1,97 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import Stripe from "stripe";
+
+const ABACATE_API = "https://api.abacatepay.com/v1";
+
+const customerSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  email: z.string().trim().email().max(255),
+  phone: z.string().trim().min(8).max(30),
+  cpf: z.string().trim().min(11).max(20),
+  cep: z.string().trim().min(8).max(15),
+  rua: z.string().trim().min(1).max(200),
+  numero: z.string().trim().min(1).max(20),
+  complemento: z.string().trim().max(100).optional().default(""),
+  bairro: z.string().trim().min(1).max(120),
+  cidade: z.string().trim().min(1).max(120),
+  uf: z.string().trim().min(2).max(2),
+});
 
 const inputSchema = z.object({
   quantity: z.number().int().min(1).max(10),
-  paymentMethod: z.enum(["pix", "card"]).default("pix"),
-  customer: z.object({
-    name: z.string().trim().min(1).max(120),
-    email: z.string().trim().email().max(255),
-    phone: z.string().trim().min(8).max(30),
-    cpf: z.string().trim().min(11).max(20),
-    cep: z.string().trim().min(8).max(15),
-    rua: z.string().trim().min(1).max(200),
-    numero: z.string().trim().min(1).max(20),
-    complemento: z.string().trim().max(100).optional().default(""),
-    bairro: z.string().trim().min(1).max(120),
-    cidade: z.string().trim().min(1).max(120),
-    uf: z.string().trim().min(2).max(2),
-  }),
+  customer: customerSchema,
 });
 
-const PRICE_ID = "price_1TW1UvAQyEZ1lFu3AxluYQyU";
-const UNIT_AMOUNT = 8700; // R$ 87,00 in cents
+const UNIT_AMOUNT = 8700; // R$ 87,00 em centavos
+const onlyDigits = (s: string) => s.replace(/\D/g, "");
 
-export const getStripePublishableKey = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const key = process.env.STRIPE_PUBLISHABLE_KEY;
-    if (!key) throw new Error("STRIPE_PUBLISHABLE_KEY is not configured");
-    return { publishableKey: key };
-  });
-
-export const createCheckoutPaymentIntent = createServerFn({ method: "POST" })
+export const createAbacatePixCharge = createServerFn({ method: "POST" })
   .inputValidator((data) => inputSchema.parse(data))
   .handler(async ({ data }) => {
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not configured");
+    const apiKey = process.env.ABACATEPAY_API_KEY;
+    if (!apiKey) throw new Error("ABACATEPAY_API_KEY não configurada");
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" as any });
+    const amount = UNIT_AMOUNT * data.quantity;
 
-    const line1 = `${data.customer.rua}, ${data.customer.numero}${data.customer.complemento ? " - " + data.customer.complemento : ""}`;
-
-    const methodTypes = data.paymentMethod === "card" ? ["card"] : ["pix"];
-
-    const intent = await stripe.paymentIntents.create({
-      amount: UNIT_AMOUNT * data.quantity,
-      currency: "brl",
-      payment_method_types: methodTypes,
-      receipt_email: data.customer.email,
+    const body = {
+      amount,
+      expiresIn: 60 * 60, // 1h
       description: `Happy 3 Em 1 x${data.quantity}`,
-      metadata: {
-        price_id: PRICE_ID,
-        quantity: String(data.quantity),
-        customer_name: data.customer.name,
-        customer_phone: data.customer.phone,
-        customer_cpf: data.customer.cpf,
-        customer_cep: data.customer.cep,
-        customer_address: `${line1}, ${data.customer.bairro}, ${data.customer.cidade}/${data.customer.uf}`,
-      },
-      shipping: {
+      customer: {
         name: data.customer.name,
-        phone: data.customer.phone,
-        address: {
-          country: "BR",
-          postal_code: data.customer.cep,
-          line1,
-          line2: data.customer.bairro,
-          city: data.customer.cidade,
-          state: data.customer.uf,
-        },
+        cellphone: data.customer.phone,
+        email: data.customer.email,
+        taxId: onlyDigits(data.customer.cpf),
       },
+    };
+
+    const res = await fetch(`${ABACATE_API}/pixQrCode/create`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
     });
 
+    const json = (await res.json()) as any;
+    if (!res.ok || json?.error) {
+      console.error("AbacatePay create error:", json);
+      throw new Error(
+        json?.error?.message || json?.message || "Falha ao gerar PIX",
+      );
+    }
+
+    const d = json.data ?? json;
     return {
-      clientSecret: intent.client_secret,
-      amount: intent.amount,
+      id: d.id as string,
+      brCode: d.brCode as string,
+      brCodeBase64: d.brCodeBase64 as string,
+      amount: d.amount as number,
+      expiresAt: d.expiresAt as string | null,
     };
+  });
+
+export const checkAbacatePixStatus = createServerFn({ method: "POST" })
+  .inputValidator((data) => z.object({ id: z.string().min(1).max(80) }).parse(data))
+  .handler(async ({ data }) => {
+    const apiKey = process.env.ABACATEPAY_API_KEY;
+    if (!apiKey) throw new Error("ABACATEPAY_API_KEY não configurada");
+
+    const res = await fetch(
+      `${ABACATE_API}/pixQrCode/check?id=${encodeURIComponent(data.id)}`,
+      {
+        method: "GET",
+        headers: { Authorization: `Bearer ${apiKey}` },
+      },
+    );
+
+    const json = (await res.json()) as any;
+    if (!res.ok || json?.error) {
+      console.error("AbacatePay check error:", json);
+      throw new Error(json?.error?.message || "Falha ao consultar status");
+    }
+
+    const d = json.data ?? json;
+    return { status: (d.status as string) ?? "PENDING" };
   });
